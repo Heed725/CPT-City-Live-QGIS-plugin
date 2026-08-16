@@ -14,13 +14,13 @@ jobs:
       - name: Build native CPT-City SVG catalog
         run: python3 scripts/build_palette_bundle.py
       - name: Build plugin ZIP
-        run: zip -r CPT-City-Native-Catalog-2.1.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+        run: zip -r CPT-City-New-Catalog-2.2.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.1.0
-          name: CPT-City Native Catalog v2.1.0
+          tag_name: v2.2.0
+          name: CPT-City New Catalog v2.2.0
           body: |
-            Native hierarchical CPT-City catalog for QGIS 3.22–3.x.
+            Separate cpt-city-new hierarchical catalog for QGIS 3.22–3.x.
 
-            Palettes stay grouped in QGIS's Catalog: cpt-city browser and load only when selected. Nothing is bulk-imported into Style Manager.
-          files: CPT-City-Native-Catalog-*.zip
+            Includes a restoration action and Python script for returning to QGIS's original built-in CPT-City archive. Nothing is bulk-imported into Style Manager.
+          files: CPT-City-New-Catalog-*.zip
