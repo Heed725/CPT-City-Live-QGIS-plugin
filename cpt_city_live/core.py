@@ -1,7 +1,7 @@
 """Network, package and catalogue logic without QGIS dependencies."""
 from __future__ import annotations
 
-import hashlib, html, json, os, re, shutil, tempfile, urllib.parse, urllib.request, zipfile
+import hashlib, html, io, json, os, re, shutil, tempfile, urllib.parse, urllib.request, zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -90,6 +90,34 @@ def build_index(root: Path):
             continue
     return palettes
 
+def build_index_from_zip(payload: bytes):
+    """Index ramps directly from the archive, avoiding thousands of disk writes."""
+    palettes = []
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        qgs_names = []
+        for info in archive.infolist():
+            parts = Path(info.filename).parts
+            if info.filename.startswith("/") or ".." in parts:
+                raise ValueError("Unsafe path found in downloaded archive")
+            if not info.is_dir() and info.filename.lower().endswith(".qgs"):
+                qgs_names.append(info.filename)
+        prefixes = {name.split("/", 1)[0] for name in qgs_names if "/" in name}
+        strip_root = len(prefixes) == 1
+        for name in sorted(qgs_names):
+            try:
+                ramp = ET.fromstring(archive.read(name)).find("./colorramps/colorramp")
+                if ramp is None: continue
+                props = {p.get("k", ""): p.get("v", "") for p in ramp.findall("prop")}
+                relative = name.split("/", 1)[1] if strip_root and "/" in name else name
+                collection = relative.rsplit("/", 1)[0] if "/" in relative else "root"
+                palettes.append(Palette(relative[:-4], ramp.get("name") or Path(relative).stem,
+                    collection, relative, props.get("color1", "0,0,0,255"),
+                    props.get("color2", "255,255,255,255"), props.get("stops", ""),
+                    props.get("discrete", "0") == "1"))
+            except (ET.ParseError, KeyError, OSError):
+                continue
+    return palettes
+
 def sync_catalogue(data_dir: Path, force=False, progress=None):
     data_dir.mkdir(parents=True, exist_ok=True)
     state_path, index_path = data_dir / "state.json", data_dir / "index.json"
@@ -99,26 +127,17 @@ def sync_catalogue(data_dir: Path, force=False, progress=None):
         state = {}
     if progress: progress("Checking the cpt-city package page…")
     remote = fetch_remote_package()
-    catalogue_root = data_dir / "catalogue"
-    unchanged = state.get("resource_id") == remote.resource_id and catalogue_root.exists() and index_path.exists()
+    unchanged = state.get("resource_id") == remote.resource_id and index_path.exists()
     if unchanged and not force:
         palettes = [Palette(**row) for row in json.loads(index_path.read_text(encoding="utf-8"))]
         return remote, palettes, False
     if progress: progress(f"Downloading cpt-city QGIS package {remote.version}…")
     payload, headers = request_bytes(remote.url)
     digest = hashlib.sha256(payload).hexdigest()
-    with tempfile.TemporaryDirectory(prefix="cpt-city-live-") as temp:
-        tmp = Path(temp)
-        archive_path = tmp / "catalogue.zip"
-        archive_path.write_bytes(payload)
-        extracted = safe_extract(archive_path, tmp / "extract")
-        palettes = build_index(extracted)
-        if not palettes:
-            raise ValueError("No QGIS colour ramps were found in the downloaded package.")
-        staged = tmp / "catalogue"
-        shutil.copytree(extracted, staged)
-        if catalogue_root.exists(): shutil.rmtree(catalogue_root)
-        shutil.move(str(staged), str(catalogue_root))
+    if progress: progress("Indexing palettes in memory…")
+    palettes = build_index_from_zip(payload)
+    if not palettes:
+        raise ValueError("No QGIS colour ramps were found in the downloaded package.")
     index_path.write_text(json.dumps([asdict(p) for p in palettes], indent=2, ensure_ascii=False), encoding="utf-8")
     state_path.write_text(json.dumps({"version": remote.version, "resource_id": remote.resource_id,
         "url": remote.url, "sha256": digest, "etag": headers.get("ETag", ""),
