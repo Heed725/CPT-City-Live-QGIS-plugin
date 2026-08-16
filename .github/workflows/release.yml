@@ -14,13 +14,19 @@ jobs:
       - name: Build independent CPT-City SVG catalog
         run: python3 scripts/build_palette_bundle.py
       - name: Build plugin ZIP
-        run: zip -r CPT-City-New-Independent-Catalog-3.0.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+        run: zip -r CPT-City-New-QGIS-Plugin-1.0.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+      - name: Replace obsolete v1 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v1.0.0 --cleanup-tag --yes || true
+          gh release delete v3.0.0 --cleanup-tag --yes || true
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.0.0
-          name: CPT-City New Independent Catalog v3.0.0
+          tag_name: v1.0.0
+          name: CPT-City New QGIS Plugin v1.0.0
           body: |
             Safe independent lazy-loading catalog for QGIS 3.22–3.x.
 
             Leaves QGIS's default CPT-City catalog untouched. Browse/search 7,000+ bundled ramps, preview one SVG at a time, and install only the selected ramp.
-          files: CPT-City-New-Independent-Catalog-*.zip
+          files: CPT-City-New-QGIS-Plugin-*.zip

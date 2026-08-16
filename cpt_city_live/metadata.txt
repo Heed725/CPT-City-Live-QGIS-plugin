@@ -1,14 +1,14 @@
 [general]
 name=CPT-City New Independent Catalog
 description=Safely browse 7,000+ bundled CPT-City ramps and install only selected ramps without changing QGIS's default catalog.
-version=3.0.0
+version=1.0.0
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 author=Hemed Lungo
 about=Provides a separate lazy-loading CPT-City New browser. It never registers or clears QgsCptCityArchive, never changes CptCity settings, and imports only the ramp explicitly selected by the user.
 homepage=https://phillips.shef.ac.uk/pub/cpt-city/
-repository=https://github.com/Heed725/CPT-City-Live-QGIS-plugin
-tracker=https://github.com/Heed725/CPT-City-Live-QGIS-plugin/issues
+repository=https://github.com/Heed725/CPT-City-New-QGIS-Plugin
+tracker=https://github.com/Heed725/CPT-City-New-QGIS-Plugin/issues
 category=Raster
 icon=icon.svg
 experimental=False
