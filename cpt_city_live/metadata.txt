@@ -1,0 +1,16 @@
+[general]
+name=CPT-City Live
+description=Discover, preview, sync and install the latest cpt-city colour ramps into QGIS.
+version=1.0.0
+qgisMinimumVersion=3.22
+qgisMaximumVersion=3.99
+author=Hemed Lungo
+about=Reads the cpt-city package page dynamically, detects the current QGIS package and imports palettes into the active QGIS style database.
+homepage=https://phillips.shef.ac.uk/pub/cpt-city/
+repository=https://github.com/Heed725/QGIS-CPT-City-Live
+tracker=https://github.com/Heed725/QGIS-CPT-City-Live/issues
+category=Raster
+icon=icon.svg
+experimental=False
+deprecated=False
+tags=colour,color,palette,ramp,cpt-city,raster,cartography
