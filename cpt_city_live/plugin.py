@@ -2,7 +2,7 @@
 from pathlib import Path
 from qgis.PyQt.QtGui import QAction, QIcon
 from qgis.PyQt.QtWidgets import QMessageBox
-from qgis.core import QgsSettings
+from qgis.core import QgsCptCityArchive, QgsSettings
 
 ARCHIVE_NAME = "cpt-city-new"
 
@@ -28,9 +28,18 @@ class CptCityLivePlugin:
         settings = QgsSettings()
         settings.setValue("CptCity/baseDir", str(self.archive_parent))
         settings.setValue("CptCity/archiveName", ARCHIVE_NAME)
+        current = QgsCptCityArchive.defaultArchive()
+        if current is None:
+            # Safe initialization: nothing is cleared or replaced.
+            QgsCptCityArchive.initArchive(ARCHIVE_NAME, str(self.archive_dir))
+            current = QgsCptCityArchive.defaultArchive()
+        loaded = current is not None and current.archiveName() == ARCHIVE_NAME and not current.isEmpty()
         if show_message:
-            QMessageBox.information(self.iface.mainWindow(), "CPT-City New", "The cpt-city-new archive setting has been saved safely.\n\nRestart QGIS to load it. The plugin no longer clears or reloads archives while QGIS is running.")
-        return True
+            if loaded:
+                QMessageBox.information(self.iface.mainWindow(), "CPT-City New", "The cpt-city-new archive is ready. Open Create New Color Ramp → Catalog: cpt-city.")
+            else:
+                QMessageBox.information(self.iface.mainWindow(), "CPT-City New", "The cpt-city-new setting is saved. Another archive is already active, so restart QGIS to switch safely.")
+        return loaded
 
     def activate_with_message(self): self.activate(show_message=True)
 
