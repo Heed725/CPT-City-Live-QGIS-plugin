@@ -1,11 +1,11 @@
 [general]
-name=CPT-City Live
-description=Discover, preview, sync and install the latest cpt-city colour ramps into QGIS.
-version=1.0.2
+name=CPT-City Offline Palette Installer
+description=Install thousands of bundled cpt-city QGIS colour ramps without downloading a catalogue.
+version=2.0.0
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 author=Hemed Lungo
-about=Reads the cpt-city package page dynamically, detects the current QGIS package and imports palettes into the active QGIS style database.
+about=Contains a prebuilt QGIS XML bundle of cpt-city ramps. Install them into the active QGIS style database and use them from normal symbology controls.
 homepage=https://phillips.shef.ac.uk/pub/cpt-city/
 repository=https://github.com/Heed725/QGIS-CPT-City-Live
 tracker=https://github.com/Heed725/QGIS-CPT-City-Live/issues
