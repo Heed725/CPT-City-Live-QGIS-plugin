@@ -11,14 +11,16 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Build offline palette XML bundle
+        run: python3 scripts/build_palette_bundle.py
       - name: Build plugin ZIP
-        run: zip -r CPT-City-Live-1.0.2.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+        run: zip -r CPT-City-Offline-2.0.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.2
-          name: CPT-City Live v1.0.2
+          tag_name: v2.0.0
+          name: CPT-City Offline Palette Installer v2.0.0
           body: |
-            Background-sync performance update for CPT-City Live on QGIS 3.22–3.x.
+            Offline palette installer for QGIS 3.22–3.x.
 
-            Downloading and in-memory ZIP indexing now run on a worker thread, so QGIS remains responsive during the first catalogue build.
-          files: CPT-City-Live-*.zip
+            The release ZIP already contains the cpt-city QGIS XML colours. Install the plugin, click Install, and use the ramps from QGIS Style Manager without downloading a catalogue.
+          files: CPT-City-Offline-*.zip
