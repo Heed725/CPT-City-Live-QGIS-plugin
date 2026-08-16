@@ -10,7 +10,8 @@ The QGIS 3.40.1 native CPT-City browser can crash in `QgsCptCityBrowserModel::fi
 - In-memory name/path index for fast search
 - Folder hierarchy; at most 250 results displayed while browsing
 - Only the selected SVG is parsed and previewed
-- Only the selected ramp is installed in QGIS Style Manager
+- Saves selected ramps in a persistent **My Catalog**, separate from default CPT-City and Style Manager
+- Copies ramps to QGIS Style Manager only through a separate optional button
 - Checks upstream CPT-City for new SVG package versions without blocking the window
 - Downloads a newer catalog only when the user chooses to update
 - Multi-selects palettes with Ctrl/Shift, or selects every visible search result
@@ -31,11 +32,15 @@ No QGIS restart is required after enabling the plugin.
 
 1. Browse a collection or search by ramp/folder name.
 2. Select one palette, Ctrl/Shift-select several palettes, or click **Select visible**.
-3. Click **Install selected palette(s) in QGIS**.
-4. Open a layer's symbology and its ordinary color-ramp selector.
-5. Select the installed ramp. Installed names begin with `CPT-City New —`.
+3. Click **Save selected to My Catalog**. This does not add anything to Style Manager.
+4. Open **My Catalog** in the collection tree whenever you want to see the saved palettes.
+5. Only when a standard QGIS colour-ramp selector needs a palette, select it and click **Copy selected to QGIS Style Manager**.
 
 The thousands of unselected ramps remain in the plugin catalog and outside Style Manager.
+
+## Where My Catalog is stored
+
+Saved SVG palettes and their small JSON index are stored under the active QGIS profile in `cpt-city-new-my-catalog`. They are outside the plugin installation folder, so reinstalling or updating the plugin does not remove them. This catalog is unrelated to QGIS's native `Catalog: cpt-city` archive and does not change `[CptCity]` settings.
 
 ## Detect and download new palettes
 
