@@ -1,12 +1,28 @@
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QSettings
+from qgis.PyQt.QtCore import Qt, QSettings, QThread, pyqtSignal
 from qgis.PyQt.QtGui import QAction, QColor, QIcon, QLinearGradient, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QHBoxLayout,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar,
     QPushButton, QVBoxLayout)
 from qgis.core import QgsApplication, QgsGradientColorRamp, QgsGradientStop, QgsStyle
 from .core import load_local_index, sync_catalogue
+
+class SyncThread(QThread):
+    progress = pyqtSignal(str)
+    succeeded = pyqtSignal(object, object, bool)
+    failed = pyqtSignal(str)
+
+    def __init__(self, data_dir, force, parent=None):
+        super().__init__(parent)
+        self.data_dir, self.force = data_dir, force
+
+    def run(self):
+        try:
+            remote, palettes, changed = sync_catalogue(self.data_dir, self.force, self.progress.emit)
+            self.succeeded.emit(remote, palettes, changed)
+        except Exception as error:
+            self.failed.emit(str(error))
 
 def rgba(value):
     bits = [int(float(x)) for x in value.split(",")[:4]]
@@ -38,6 +54,7 @@ class PaletteDialog(QDialog):
     def __init__(self, data_dir, parent=None):
         super().__init__(parent)
         self.data_dir, self.palettes = data_dir, load_local_index(data_dir)
+        self.sync_thread = None
         self.setWindowTitle("CPT-City Live — Colour Ramp Browser")
         self.resize(860, 640)
         layout = QVBoxLayout(self)
@@ -99,19 +116,25 @@ class PaletteDialog(QDialog):
 
     def sync(self):
         self.progress.show(); self.sync_button.setEnabled(False)
-        try:
-            remote, self.palettes, changed = sync_catalogue(self.data_dir, self.force.isChecked(), self._progress)
-            self.populate()
-            action = "Downloaded and indexed" if changed else "Already current; found"
-            self.status.setText(f"{action} {len(self.palettes):,} palettes (cpt-city {remote.version}).")
-            QSettings().setValue("cptCityLive/lastVersion", remote.version)
-        except Exception as error:
-            QMessageBox.critical(self, "CPT-City Live", f"Could not update the catalogue:\n\n{error}")
-        finally:
-            self.progress.hide(); self.sync_button.setEnabled(True)
+        self.sync_thread = SyncThread(self.data_dir, self.force.isChecked(), self)
+        self.sync_thread.progress.connect(self.status.setText)
+        self.sync_thread.succeeded.connect(self.sync_finished)
+        self.sync_thread.failed.connect(self.sync_failed)
+        self.sync_thread.start()
 
-    def _progress(self, message):
-        self.status.setText(message); QgsApplication.processEvents()
+    def sync_finished(self, remote, palettes, changed):
+        self.palettes = palettes
+        self.populate()
+        action = "Downloaded and indexed" if changed else "Already current; found"
+        self.status.setText(f"{action} {len(palettes):,} palettes (cpt-city {remote.version}).")
+        QSettings().setValue("cptCityLive/lastVersion", remote.version)
+        self.progress.hide(); self.sync_button.setEnabled(True)
+        self.sync_thread = None
+
+    def sync_failed(self, error):
+        self.progress.hide(); self.sync_button.setEnabled(True)
+        self.sync_thread = None
+        QMessageBox.critical(self, "CPT-City Live", f"Could not update the catalogue:\n\n{error}")
 
     def install_selected(self):
         selected = self.list.selectedItems()
