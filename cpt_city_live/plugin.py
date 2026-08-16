@@ -1,172 +1,93 @@
+"""Offline, one-click installer for bundled cpt-city QGIS ramps."""
+import json
 from pathlib import Path
+from xml.etree import ElementTree as ET
+from qgis.PyQt.QtCore import QSettings, QThread, QTimer, pyqtSignal
+from qgis.PyQt.QtGui import QAction, QColor, QIcon
+from qgis.PyQt.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QVBoxLayout
+from qgis.core import QgsGradientColorRamp, QgsGradientStop, QgsStyle
 
-from qgis.PyQt.QtCore import Qt, QSettings, QThread, pyqtSignal
-from qgis.PyQt.QtGui import QAction, QColor, QIcon, QLinearGradient, QPainter, QPixmap
-from qgis.PyQt.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar,
-    QPushButton, QVBoxLayout)
-from qgis.core import QgsApplication, QgsGradientColorRamp, QgsGradientStop, QgsStyle
-from .core import load_local_index, sync_catalogue
-
-class SyncThread(QThread):
-    progress = pyqtSignal(str)
-    succeeded = pyqtSignal(object, object, bool)
-    failed = pyqtSignal(str)
-
-    def __init__(self, data_dir, force, parent=None):
-        super().__init__(parent)
-        self.data_dir, self.force = data_dir, force
-
-    def run(self):
-        try:
-            remote, palettes, changed = sync_catalogue(self.data_dir, self.force, self.progress.emit)
-            self.succeeded.emit(remote, palettes, changed)
-        except Exception as error:
-            self.failed.emit(str(error))
+BATCH_SIZE = 25
 
 def rgba(value):
     bits = [int(float(x)) for x in value.split(",")[:4]]
     while len(bits) < 4: bits.append(255)
     return QColor(*bits)
 
-def ramp_from_palette(palette):
-    stops = []
-    for token in palette.stops.split(":") if palette.stops else []:
+def ramp_from_record(record):
+    props, stops = record["props"], []
+    for token in props.get("stops", "").split(":") if props.get("stops") else []:
         if ";" not in token: continue
         offset, color = token.split(";", 1)
         try: stops.append(QgsGradientStop(float(offset), rgba(color)))
         except (TypeError, ValueError): pass
-    return QgsGradientColorRamp(rgba(palette.color1), rgba(palette.color2), palette.discrete, stops)
+    return QgsGradientColorRamp(rgba(props.get("color1", "0,0,0,255")), rgba(props.get("color2", "255,255,255,255")), props.get("discrete", "0") == "1", stops)
 
-def preview_icon(palette, width=260, height=28):
-    pixmap = QPixmap(width, height)
-    gradient = QLinearGradient(0, 0, width, 0)
-    ramp = ramp_from_palette(palette)
-    for i in range(81):
-        x = i / 80.0
-        gradient.setColorAt(x, ramp.color(x))
-    painter = QPainter(pixmap)
-    painter.fillRect(pixmap.rect(), gradient)
-    painter.end()
-    return QIcon(pixmap)
+class BundleLoader(QThread):
+    loaded, failed = pyqtSignal(object), pyqtSignal(str)
+    def __init__(self, xml_path, parent=None): super().__init__(parent); self.xml_path = xml_path
+    def run(self):
+        try:
+            records = []
+            for _, element in ET.iterparse(self.xml_path, events=("end",)):
+                if element.tag != "colorramp": continue
+                records.append({"name": element.get("name", "cpt-city/unnamed"), "props": {p.get("k", ""): p.get("v", "") for p in element.findall("prop")}})
+                element.clear()
+            self.loaded.emit(records)
+        except Exception as error: self.failed.emit(str(error))
 
-class PaletteDialog(QDialog):
-    def __init__(self, data_dir, parent=None):
+class InstallerDialog(QDialog):
+    def __init__(self, plugin_dir, parent=None):
         super().__init__(parent)
-        self.data_dir, self.palettes = data_dir, load_local_index(data_dir)
-        self.sync_thread = None
-        self.setWindowTitle("CPT-City Live — Colour Ramp Browser")
-        self.resize(860, 640)
+        self.plugin_dir, self.xml_path = plugin_dir, plugin_dir / "palettes.xml"
+        try: self.manifest = json.loads((plugin_dir / "bundle.json").read_text(encoding="utf-8"))
+        except Exception: self.manifest = {}
+        count, version = self.manifest.get("palette_count", 0), self.manifest.get("cpt_city_version", "unknown")
+        self.records, self.position, self.installed, self.loader = [], 0, 0, None
+        self.setWindowTitle("CPT-City Offline Palette Installer"); self.resize(610, 260)
         layout = QVBoxLayout(self)
-        intro = QLabel("Search, preview and install ramps from the live cpt-city QGIS catalogue.")
-        layout.addWidget(intro)
-        row = QHBoxLayout()
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Search palette, collection or path…")
-        self.force = QCheckBox("Force full refresh")
-        self.sync_button = QPushButton("Check for new palettes")
-        row.addWidget(self.search, 1); row.addWidget(self.force); row.addWidget(self.sync_button)
-        layout.addLayout(row)
-        self.list = QListWidget()
-        self.list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        layout.addWidget(self.list, 1)
-        preview_row = QHBoxLayout()
-        preview_row.addWidget(QLabel("Selected palette:"))
-        self.preview = QLabel("Select a palette to preview it")
-        self.preview.setMinimumHeight(32)
-        self.preview.setAlignment(Qt.AlignCenter)
-        preview_row.addWidget(self.preview, 1)
-        layout.addLayout(preview_row)
-        self.status, self.progress = QLabel(), QProgressBar()
-        self.progress.setRange(0, 0); self.progress.hide()
-        layout.addWidget(self.status); layout.addWidget(self.progress)
-        buttons = QHBoxLayout()
-        select_visible, install, close = QPushButton("Select visible"), QPushButton("Install selected in QGIS"), QPushButton("Close")
-        buttons.addWidget(select_visible); buttons.addStretch(1); buttons.addWidget(install); buttons.addWidget(close)
-        layout.addLayout(buttons)
-        self.search.textChanged.connect(self.populate)
-        self.list.currentItemChanged.connect(self.show_preview)
-        self.sync_button.clicked.connect(self.sync)
-        select_visible.clicked.connect(self.list.selectAll)
-        install.clicked.connect(self.install_selected)
-        close.clicked.connect(self.accept)
-        self.populate()
+        description = QLabel(f"This plugin already contains <b>{count:,}</b> QGIS colour ramps from cpt-city {version}. No catalogue download is required.")
+        description.setWordWrap(True)
+        self.status = QLabel("Click Install to add the bundled ramps to QGIS Style Manager."); self.status.setWordWrap(True)
+        self.progress = QProgressBar(); self.progress.setRange(0, max(count, 1)); self.progress.setValue(0)
+        layout.addWidget(QLabel("<h2>Install CPT-City colour ramps in QGIS</h2>")); layout.addWidget(description); layout.addWidget(self.status); layout.addWidget(self.progress)
+        buttons = QHBoxLayout(); buttons.addStretch(1)
+        self.install_button, self.close_button = QPushButton(f"Install {count:,} palettes"), QPushButton("Close")
+        buttons.addWidget(self.install_button); buttons.addWidget(self.close_button); layout.addLayout(buttons)
+        self.install_button.clicked.connect(self.start_install); self.close_button.clicked.connect(self.accept)
+        if not self.xml_path.exists() or not count:
+            self.install_button.setEnabled(False)
+            self.status.setText("Bundled palette XML is missing. Install the plugin from the GitHub Release ZIP, not GitHub's source ZIP.")
 
-    def populate(self):
-        query = self.search.text().strip().lower()
-        self.list.clear()
-        matches = [p for p in self.palettes if not query or query in p.search_text]
-        # Creating thousands of Qt items and ramp icons blocks the QGIS UI.
-        # Keep broad views bounded; a specific search instantly narrows the set.
-        visible = matches[:500]
-        for palette in visible:
-            item = QListWidgetItem(f"{palette.name}   —   {palette.collection}")
-            item.setToolTip(palette.relative_path); item.setData(Qt.UserRole, palette)
-            self.list.addItem(item)
-        suffix = " — refine the search to see more" if len(matches) > len(visible) else ""
-        self.status.setText(f"Showing {len(visible):,} of {len(matches):,} matching palettes; {len(self.palettes):,} indexed{suffix}")
+    def start_install(self):
+        self.install_button.setEnabled(False); self.close_button.setEnabled(False); self.status.setText("Reading bundled QGIS XML colours…")
+        self.loader = BundleLoader(str(self.xml_path), self); self.loader.loaded.connect(self.begin_batches); self.loader.failed.connect(self.load_failed); self.loader.start()
 
-    def show_preview(self, current, previous=None):
-        if not current:
-            self.preview.setText("Select a palette to preview it")
-            self.preview.setPixmap(QPixmap())
-            return
-        icon = preview_icon(current.data(Qt.UserRole), 520, 28)
-        self.preview.setPixmap(icon.pixmap(520, 28))
+    def begin_batches(self, records):
+        self.records, self.position, self.installed = records, 0, 0
+        self.progress.setRange(0, max(len(records), 1)); self.status.setText("Installing colour ramps into QGIS Style Manager…"); QTimer.singleShot(0, self.install_batch)
 
-    def sync(self):
-        self.progress.show(); self.sync_button.setEnabled(False)
-        self.sync_thread = SyncThread(self.data_dir, self.force.isChecked(), self)
-        self.sync_thread.progress.connect(self.status.setText)
-        self.sync_thread.succeeded.connect(self.sync_finished)
-        self.sync_thread.failed.connect(self.sync_failed)
-        self.sync_thread.start()
+    def install_batch(self):
+        style, end = QgsStyle.defaultStyle(), min(self.position + BATCH_SIZE, len(self.records))
+        for record in self.records[self.position:end]:
+            if style.addColorRamp(record["name"], ramp_from_record(record), True): self.installed += 1
+        self.position = end; self.progress.setValue(end); self.status.setText(f"Installing {end:,} of {len(self.records):,} palettes…")
+        if end < len(self.records): QTimer.singleShot(0, self.install_batch)
+        else:
+            style.save(); QSettings().setValue("cptCityOffline/installedVersion", self.manifest.get("cpt_city_version", ""))
+            self.status.setText(f"Complete — {self.installed:,} colour ramps are ready in QGIS Style Manager.")
+            self.close_button.setEnabled(True); self.install_button.setText("Reinstall palettes"); self.install_button.setEnabled(True)
+            QMessageBox.information(self, "CPT-City Offline", "Installation complete. Search for cpt-city/ in any QGIS colour-ramp selector.")
 
-    def sync_finished(self, remote, palettes, changed):
-        self.palettes = palettes
-        self.populate()
-        action = "Downloaded and indexed" if changed else "Already current; found"
-        self.status.setText(f"{action} {len(palettes):,} palettes (cpt-city {remote.version}).")
-        QSettings().setValue("cptCityLive/lastVersion", remote.version)
-        self.progress.hide(); self.sync_button.setEnabled(True)
-        self.sync_thread = None
-
-    def sync_failed(self, error):
-        self.progress.hide(); self.sync_button.setEnabled(True)
-        self.sync_thread = None
-        QMessageBox.critical(self, "CPT-City Live", f"Could not update the catalogue:\n\n{error}")
-
-    def install_selected(self):
-        selected = self.list.selectedItems()
-        if not selected:
-            QMessageBox.information(self, "CPT-City Live", "Select one or more palettes first."); return
-        style, installed = QgsStyle.defaultStyle(), 0
-        for item in selected:
-            palette = item.data(Qt.UserRole)
-            style_name = f"cpt-city/{palette.key}"
-            if style.addColorRamp(style_name, ramp_from_palette(palette), True):
-                installed += 1
-                try: style.tagSymbol(QgsStyle.ColorrampEntity, style_name, ["cpt-city", palette.collection])
-                except Exception: pass
-        style.save()
-        QMessageBox.information(self, "CPT-City Live", f"Installed {installed:,} ramp(s).\n\nFind them in Style Manager by searching for cpt-city/.")
+    def load_failed(self, error):
+        self.close_button.setEnabled(True); self.install_button.setEnabled(True); QMessageBox.critical(self, "CPT-City Offline", f"Could not read the bundled palette XML:\n\n{error}")
 
 class CptCityLivePlugin:
-    def __init__(self, iface):
-        self.iface, self.action, self.dialog = iface, None, None
-        self.data_dir = Path(QgsApplication.qgisSettingsDirPath()) / "cpt-city-live"
-
+    def __init__(self, iface): self.iface, self.action, self.dialog, self.plugin_dir = iface, None, None, Path(__file__).parent
     def initGui(self):
-        self.action = QAction(QIcon(str(Path(__file__).with_name("icon.svg"))), "CPT-City Live", self.iface.mainWindow())
-        self.action.triggered.connect(self.run)
-        self.iface.addPluginToRasterMenu("CPT-City Live", self.action)
-        self.iface.addToolBarIcon(self.action)
-
+        self.action = QAction(QIcon(str(self.plugin_dir / "icon.svg")), "Install CPT-City palettes", self.iface.mainWindow()); self.action.triggered.connect(self.run)
+        self.iface.addPluginToRasterMenu("CPT-City Offline", self.action); self.iface.addToolBarIcon(self.action)
     def unload(self):
-        if self.action:
-            self.iface.removePluginRasterMenu("CPT-City Live", self.action)
-            self.iface.removeToolBarIcon(self.action)
-
+        if self.action: self.iface.removePluginRasterMenu("CPT-City Offline", self.action); self.iface.removeToolBarIcon(self.action)
     def run(self):
-        self.dialog = PaletteDialog(self.data_dir, self.iface.mainWindow())
-        self.dialog.show(); self.dialog.raise_(); self.dialog.activateWindow()
+        self.dialog = InstallerDialog(self.plugin_dir, self.iface.mainWindow()); self.dialog.show(); self.dialog.raise_(); self.dialog.activateWindow()
