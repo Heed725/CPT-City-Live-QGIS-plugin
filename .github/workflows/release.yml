@@ -12,13 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build plugin ZIP
-        run: zip -r CPT-City-Live-1.0.1.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+        run: zip -r CPT-City-Live-1.0.2.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: CPT-City Live v1.0.1
+          tag_name: v1.0.2
+          name: CPT-City Live v1.0.2
           body: |
-            Performance update for CPT-City Live on QGIS 3.22–3.x.
+            Background-sync performance update for CPT-City Live on QGIS 3.22–3.x.
 
-            Palette previews are now rendered only for the selected row and broad result lists are bounded, preventing the interface from drawing thousands of gradients during startup.
+            Downloading and in-memory ZIP indexing now run on a worker thread, so QGIS remains responsive during the first catalogue build.
           files: CPT-City-Live-*.zip
