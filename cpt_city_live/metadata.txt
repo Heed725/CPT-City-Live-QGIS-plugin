@@ -1,11 +1,11 @@
 [general]
-name=CPT-City Native Catalog
-description=Adds the complete bundled cpt-city archive to QGIS as a native hierarchical colour-ramp catalog.
-version=2.1.0
+name=CPT-City New Catalog
+description=Adds a separate bundled archive named cpt-city-new and can restore QGIS's original CPT-City catalog.
+version=2.2.0
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 author=Hemed Lungo
-about=Registers a bundled native SVG cpt-city archive with QgsCptCityArchive. Palettes remain grouped in QGIS's catalog browser and are loaded only when chosen, instead of adding thousands of ramps directly to Style Manager.
+about=Registers a bundled native SVG archive as cpt-city-new. Palettes remain grouped and load only when chosen. A separate action and Python script restore QGIS's original built-in CPT-City settings.
 homepage=https://phillips.shef.ac.uk/pub/cpt-city/
 repository=https://github.com/Heed725/QGIS-CPT-City-Live
 tracker=https://github.com/Heed725/QGIS-CPT-City-Live/issues
