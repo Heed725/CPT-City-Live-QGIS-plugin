@@ -1,11 +1,11 @@
 [general]
-name=CPT-City Offline Palette Installer
-description=Install thousands of bundled cpt-city QGIS colour ramps without downloading a catalogue.
-version=2.0.0
+name=CPT-City Native Catalog
+description=Adds the complete bundled cpt-city archive to QGIS as a native hierarchical colour-ramp catalog.
+version=2.1.0
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 author=Hemed Lungo
-about=Contains a prebuilt QGIS XML bundle of cpt-city ramps. Install them into the active QGIS style database and use them from normal symbology controls.
+about=Registers a bundled native SVG cpt-city archive with QgsCptCityArchive. Palettes remain grouped in QGIS's catalog browser and are loaded only when chosen, instead of adding thousands of ramps directly to Style Manager.
 homepage=https://phillips.shef.ac.uk/pub/cpt-city/
 repository=https://github.com/Heed725/QGIS-CPT-City-Live
 tracker=https://github.com/Heed725/QGIS-CPT-City-Live/issues
