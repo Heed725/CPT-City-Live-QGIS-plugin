@@ -1,14 +1,14 @@
 [general]
-name=CPT-City New Catalog
-description=Adds a separate bundled archive named cpt-city-new and can restore QGIS's original CPT-City catalog.
-version=2.2.2
+name=CPT-City New Independent Catalog
+description=Safely browse 7,000+ bundled CPT-City ramps and install only selected ramps without changing QGIS's default catalog.
+version=3.0.0
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 author=Hemed Lungo
-about=Registers a bundled native SVG archive as cpt-city-new. If no archive exists it initializes safely; it never clears or replaces a live archive object and never bulk-imports palettes.
+about=Provides a separate lazy-loading CPT-City New browser. It never registers or clears QgsCptCityArchive, never changes CptCity settings, and imports only the ramp explicitly selected by the user.
 homepage=https://phillips.shef.ac.uk/pub/cpt-city/
-repository=https://github.com/Heed725/QGIS-CPT-City-Live
-tracker=https://github.com/Heed725/QGIS-CPT-City-Live/issues
+repository=https://github.com/Heed725/CPT-City-Live-QGIS-plugin
+tracker=https://github.com/Heed725/CPT-City-Live-QGIS-plugin/issues
 category=Raster
 icon=icon.svg
 experimental=False

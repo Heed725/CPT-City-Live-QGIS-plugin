@@ -1,32 +1,48 @@
-# CPT-City New Catalog for QGIS
+# CPT-City New Independent Catalog for QGIS
 
-This plugin adds the complete collection as a separate archive named `cpt-city-new`. It does **not** add 7,000+ entries directly to Style Manager. Collections remain grouped and QGIS loads a ramp only when selected.
+A safe, separate color-ramp catalog containing the complete CPT-City SVG collection. It does not replace, initialize, or modify QGIS's built-in CPT-City archive.
 
-QGIS's native dialog supports one active CPT-City archive at a time. The plugin safely configures `cpt-city-new` and requires QGIS to be restarted before it becomes active.
+## Why version 3 is different
 
-## Install and use
+The QGIS 3.40.1 native CPT-City browser can crash in `QgsCptCityBrowserModel::findPath` when a second full raw archive is registered. Earlier 2.x releases used that native mechanism. Version 3 removes it completely.
 
-1. Download `CPT-City-New-Catalog-2.2.2.zip` from Releases.
-2. In QGIS open **Plugins → Manage and Install Plugins → Install from ZIP**.
-3. Choose the downloaded ZIP and enable the plugin.
-4. The plugin saves the `cpt-city-new` configuration. Restart QGIS once.
-5. You can also use **Raster → CPT-City Catalog → Activate CPT-City New catalog**, then restart QGIS.
-5. In raster or vector symbology, open the colour-ramp menu and choose **Create New Color Ramp**.
-6. In **Color ramp type**, choose **Catalog: cpt-city** and click **OK**.
-7. Browse the grouped collections, choose a palette and accept it.
+- Independent plugin window named **CPT-City New Catalog**
+- In-memory name/path index for fast search
+- Folder hierarchy; at most 250 results displayed while browsing
+- Only the selected SVG is parsed and previewed
+- Only the selected ramp is installed in QGIS Style Manager
+- No `QgsCptCityArchive`, `QgsCptCityColorRampDialog`, `clearArchives()`, or CPT-City settings changes
+- Default QGIS CPT-City remains available and unchanged
 
-The plugin performs no palette network download on the user's computer. Its release contains the native SVG archive. It sets QGIS's `CptCity/baseDir` and `CptCity/archiveName`, then reinitializes `QgsCptCityArchive`. Ramps remain in the catalog and are not imported individually.
+## Install
 
-The plugin deliberately does not call `QgsCptCityArchive.clearArchives()` or replace an existing archive during a live QGIS session. When no archive is initialized, it safely calls `initArchive()` for `cpt-city-new`; otherwise it asks for a restart.
+1. Keep the old `cpt_city_live` folder disabled or delete that disabled copy.
+2. Download `CPT-City-New-Independent-Catalog-3.0.0.zip` from Releases.
+3. In QGIS select **Plugins → Manage and Install Plugins → Install from ZIP**.
+4. Choose the ZIP and enable **CPT-City New Independent Catalog**.
+5. Open **Raster → CPT-City New → CPT-City New Catalog**, or click its toolbar icon.
 
-## Apply to a raster
+No QGIS restart is required after enabling version 3.
 
-Open **Layer Properties → Symbology → Singleband pseudocolor**, open the colour-ramp selector, choose **Create New Color Ramp → Catalog: cpt-city**, browse to a ramp, select **Classify**, then apply.
+## Use a ramp
 
-## Updating the bundled archive
+1. Browse a collection or search by ramp/folder name.
+2. Click a ramp to generate its preview.
+3. Click **Install selected ramp in QGIS**.
+4. Open a layer's symbology and its ordinary color-ramp selector.
+5. Select the installed ramp. Installed names begin with `CPT-City New —`.
 
-The release workflow discovers the current cpt-city `svg` package, safely extracts it under `cpt_city_live/archives/cpt-city-new`, adds archive metadata, and packages it inside the installable plugin ZIP.
+The thousands of unselected ramps remain in the plugin catalog and outside Style Manager.
+
+## Upgrading from 2.x after recovery
+
+Version 3 never reads or restores the unsafe 2.x configuration. If you followed the recovery commands and `Select-String` returned no result, your profile is already clean.
+
+## Automatic upstream updates
+
+The release workflow discovers the current CPT-City SVG package, extracts it under `cpt_city_live/archives/cpt-city-new`, creates a compact path index, and packages the installable ZIP. New upstream SVG ramps are included whenever a new release is built.
 
 ## Licensing
 
-The plugin code is MIT licensed. Individual palettes remain subject to their cpt-city contributor licences and attribution. See the [cpt-city copyright information](https://phillips.shef.ac.uk/pub/cpt-city/notes/copyright.html).
+Plugin code is MIT licensed. Individual palettes retain their contributor licenses and attribution. See the [CPT-City copyright information](https://phillips.shef.ac.uk/pub/cpt-city/notes/copyright.html).
+

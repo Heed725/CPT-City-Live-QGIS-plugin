@@ -38,8 +38,10 @@ def main():
     else: url, version = discover(); payload = get(url)
     destination = Path(args.output_dir) / ARCHIVE_NAME
     count = extract(payload, destination)
+    ramps = sorted(p.relative_to(destination).as_posix() for p in destination.rglob("*.svg"))
     (destination / "VERSION.xml").write_text(f'<version><name>{ARCHIVE_NAME}</name><version>{version}</version><ramps>{count}</ramps></version>', encoding="utf-8")
     (Path(args.output_dir) / "bundle.json").write_text(json.dumps({"cpt_city_version": version, "palette_count": count, "archive_name": ARCHIVE_NAME}, indent=2), encoding="utf-8")
+    (Path(args.output_dir).parent / "catalog.json").write_text(json.dumps({"version": version, "ramps": ramps}, separators=(",", ":")), encoding="utf-8")
     print(f"Bundled {count} native SVG ramps from cpt-city {version}")
 
 if __name__ == "__main__": main()
