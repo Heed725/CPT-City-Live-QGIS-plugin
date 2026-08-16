@@ -9,6 +9,8 @@ It does **not** hard-code the current download ID. On every update check it read
 - Live discovery of the current cpt-city QGIS package
 - Search by palette name, collection/author or archive path
 - Real ramp previews inside QGIS
+- Fast lazy preview rendering: only the selected palette is drawn
+- Broad results are limited to 500 rows to keep the QGIS interface responsive
 - Multiple selection and filtered bulk installation
 - Imports ramps into the active QGIS Style database
 - Uses `cpt-city/collection/name` to avoid name collisions
