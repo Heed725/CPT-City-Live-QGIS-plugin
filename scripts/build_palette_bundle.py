@@ -4,7 +4,7 @@ from pathlib import Path, PurePosixPath
 
 PACKAGE_PAGE = "https://phillips.shef.ac.uk/pub/cpt-city/pkg"
 AGENT = "CPT-City-QGIS-Catalog-Builder/2.1"
-ARCHIVE_NAME = "cpt-city-full"
+ARCHIVE_NAME = "cpt-city-new"
 
 def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": AGENT}), timeout=120) as response: return response.read()
