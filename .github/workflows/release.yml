@@ -12,13 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build plugin ZIP
-        run: zip -r CPT-City-Live-1.0.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+        run: zip -r CPT-City-Live-1.0.1.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: CPT-City Live v1.0.0
+          tag_name: v1.0.1
+          name: CPT-City Live v1.0.1
           body: |
-            First stable release of CPT-City Live for QGIS 3.22–3.x.
+            Performance update for CPT-City Live on QGIS 3.22–3.x.
 
-            Discovers the current cpt-city QGIS package dynamically, indexes newly published palettes, previews ramps, and installs selected ramps into QGIS Style Manager.
+            Palette previews are now rendered only for the selected row and broad result lists are bounded, preventing the interface from drawing thousands of gradients during startup.
           files: CPT-City-Live-*.zip
