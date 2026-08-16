@@ -6,7 +6,7 @@ QGIS's native dialog supports one active CPT-City archive at a time. The plugin 
 
 ## Install and use
 
-1. Download `CPT-City-New-Catalog-2.2.1.zip` from Releases.
+1. Download `CPT-City-New-Catalog-2.2.2.zip` from Releases.
 2. In QGIS open **Plugins → Manage and Install Plugins → Install from ZIP**.
 3. Choose the downloaded ZIP and enable the plugin.
 4. The plugin saves the `cpt-city-new` configuration. Restart QGIS once.
@@ -17,7 +17,7 @@ QGIS's native dialog supports one active CPT-City archive at a time. The plugin 
 
 The plugin performs no palette network download on the user's computer. Its release contains the native SVG archive. It sets QGIS's `CptCity/baseDir` and `CptCity/archiveName`, then reinitializes `QgsCptCityArchive`. Ramps remain in the catalog and are not imported individually.
 
-The plugin deliberately does not call `QgsCptCityArchive.clearArchives()` or reload archives during a live QGIS session, because existing symbology models can hold pointers to those objects and QGIS may crash.
+The plugin deliberately does not call `QgsCptCityArchive.clearArchives()` or replace an existing archive during a live QGIS session. When no archive is initialized, it safely calls `initArchive()` for `cpt-city-new`; otherwise it asks for a restart.
 
 ## Apply to a raster
 
