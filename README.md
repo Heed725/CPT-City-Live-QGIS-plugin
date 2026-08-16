@@ -11,6 +11,9 @@ The QGIS 3.40.1 native CPT-City browser can crash in `QgsCptCityBrowserModel::fi
 - Folder hierarchy; at most 250 results displayed while browsing
 - Only the selected SVG is parsed and previewed
 - Only the selected ramp is installed in QGIS Style Manager
+- Checks upstream CPT-City for new SVG package versions without blocking the window
+- Downloads a newer catalog only when the user chooses to update
+- Multi-selects palettes with Ctrl/Shift, or selects every visible search result
 - No `QgsCptCityArchive`, `QgsCptCityColorRampDialog`, `clearArchives()`, or CPT-City settings changes
 - Default QGIS CPT-City remains available and unchanged
 
@@ -27,12 +30,16 @@ No QGIS restart is required after enabling the plugin.
 ## Use a ramp
 
 1. Browse a collection or search by ramp/folder name.
-2. Click a ramp to generate its preview.
-3. Click **Install selected ramp in QGIS**.
+2. Select one palette, Ctrl/Shift-select several palettes, or click **Select visible**.
+3. Click **Install selected palette(s) in QGIS**.
 4. Open a layer's symbology and its ordinary color-ramp selector.
 5. Select the installed ramp. Installed names begin with `CPT-City New —`.
 
 The thousands of unselected ramps remain in the plugin catalog and outside Style Manager.
+
+## Detect and download new palettes
+
+The window checks the CPT-City package page in the background. When a newer package version is detected, **Check for catalog updates** changes to **Download catalog update**. Downloading happens through Qt's network manager, keeps the interface responsive, validates ZIP paths, extracts to a staging directory, and replaces the separate catalog only after successful validation. A failed update keeps the existing catalog intact.
 
 ## Installing after recovery
 

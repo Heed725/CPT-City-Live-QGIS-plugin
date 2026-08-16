@@ -1,14 +1,16 @@
 """Independent lazy browser; it never registers a QgsCptCityArchive."""
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtCore import Qt, QUrl
 from qgis.PyQt.QtGui import QColor, QLinearGradient, QPainter, QPixmap
+from qgis.PyQt.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from qgis.PyQt.QtWidgets import (QAbstractItemView, QDialog, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSplitter,
     QTreeWidget, QTreeWidgetItem, QVBoxLayout)
 from qgis.core import QgsGradientColorRamp, QgsGradientStop, QgsStyle
 
 from .core import display_name, load_index, parse_svg
+from .updater import PACKAGE_PAGE, discover_svg_package, install_zip, installed_version
 
 
 class CatalogDialog(QDialog):
@@ -20,12 +22,16 @@ class CatalogDialog(QDialog):
         self.paths = load_index(self.plugin_dir)
         self.current_stops = None
         self.current_path = None
+        self.network = QNetworkAccessManager(self)
+        self.remote_url = None
+        self.remote_version = None
         self.setWindowTitle("CPT-City New — Independent Colour Ramp Catalog")
         self.resize(980, 680)
         self.setAttribute(Qt.WA_DeleteOnClose, False)
         self._build_ui()
         self._build_tree()
         self._show_paths(self.paths[:250], limited=len(self.paths) > 250)
+        self._check_updates(silent=True)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -36,12 +42,20 @@ class CatalogDialog(QDialog):
         self.search.setPlaceholderText("Search 7,000+ ramps by name or folder…")
         self.search.textChanged.connect(self._search)
         layout.addWidget(self.search)
+        update_row = QHBoxLayout()
+        self.update_label = QLabel(f"Bundled CPT-City version: {installed_version(self.plugin_dir)}")
+        update_row.addWidget(self.update_label)
+        update_row.addStretch(1)
+        self.update_button = QPushButton("Check for catalog updates")
+        self.update_button.clicked.connect(lambda: self._check_updates(silent=False))
+        update_row.addWidget(self.update_button)
+        layout.addLayout(update_row)
         splitter = QSplitter()
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel("Collections")
         self.tree.itemSelectionChanged.connect(self._folder_selected)
         self.list = QListWidget()
-        self.list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.list.currentItemChanged.connect(self._ramp_selected)
         splitter.addWidget(self.tree)
         splitter.addWidget(self.list)
@@ -54,8 +68,11 @@ class CatalogDialog(QDialog):
         self.status = QLabel()
         layout.addWidget(self.status)
         buttons = QHBoxLayout()
+        self.select_visible = QPushButton("Select visible")
+        self.select_visible.clicked.connect(self.list.selectAll)
+        buttons.addWidget(self.select_visible)
         buttons.addStretch(1)
-        self.install = QPushButton("Install selected ramp in QGIS")
+        self.install = QPushButton("Install selected palette(s) in QGIS")
         self.install.setEnabled(False)
         self.install.clicked.connect(self._install)
         buttons.addWidget(self.install)
@@ -141,19 +158,97 @@ class CatalogDialog(QDialog):
         self.status.setText(f"Selected: {relative} — {len(stops)} stops")
 
     def _install(self):
-        if not self.current_stops:
+        selected = self.list.selectedItems()
+        if not selected:
             return
-        colors = [(offset, QColor(*rgb)) for offset, rgb in self.current_stops]
-        interior = [QgsGradientStop(offset, color) for offset, color in colors[1:-1]]
-        ramp = QgsGradientColorRamp(colors[0][1], colors[-1][1], False, interior)
-        base_name = "CPT-City New — " + self.current_path[:-4].replace("/", " — ")
         style = QgsStyle.defaultStyle()
-        name, number = base_name, 2
-        while name in style.colorRampNames():
-            name = f"{base_name} ({number})"
-            number += 1
-        if style.addColorRamp(name, ramp, True):
-            QMessageBox.information(self, "Ramp installed", f"‘{name}’ was added to QGIS Style Manager.\n\nIt is now available in colour-ramp selectors as a standard gradient.")
-        else:
-            QMessageBox.warning(self, "Installation failed", "QGIS could not add the selected ramp to Style Manager.")
+        installed, failed = [], []
+        for item in selected:
+            relative = item.data(Qt.UserRole)
+            try:
+                stops = parse_svg(self.archive / relative)
+                colors = [(offset, QColor(*rgb)) for offset, rgb in stops]
+                interior = [QgsGradientStop(offset, color) for offset, color in colors[1:-1]]
+                ramp = QgsGradientColorRamp(colors[0][1], colors[-1][1], False, interior)
+                base_name = "CPT-City New — " + relative[:-4].replace("/", " — ")
+                name, number = base_name, 2
+                while name in style.colorRampNames():
+                    name = f"{base_name} ({number})"
+                    number += 1
+                if style.addColorRamp(name, ramp, True):
+                    installed.append(name)
+                else:
+                    failed.append(relative)
+            except Exception:
+                failed.append(relative)
+        message = f"Installed {len(installed)} palette(s) in QGIS Style Manager."
+        if failed:
+            message += f"\n\n{len(failed)} palette(s) could not be installed."
+        QMessageBox.information(self, "Palette installation complete", message)
 
+    def _check_updates(self, silent=False):
+        self.update_button.setEnabled(False)
+        self.update_button.setText("Checking…")
+        reply = self.network.get(QNetworkRequest(QUrl(PACKAGE_PAGE)))
+        reply.finished.connect(lambda: self._update_page_received(reply, silent))
+
+    def _update_page_received(self, reply, silent):
+        self.update_button.setEnabled(True)
+        self.update_button.setText("Check for catalog updates")
+        if reply.error():
+            if not silent:
+                QMessageBox.warning(self, "Update check failed", reply.errorString())
+            reply.deleteLater()
+            return
+        try:
+            self.remote_url, self.remote_version = discover_svg_package(bytes(reply.readAll()).decode("utf-8", "replace"))
+            local = installed_version(self.plugin_dir)
+            if self.remote_version == local:
+                self.update_label.setText(f"Catalog is current: CPT-City {local}")
+                if not silent:
+                    QMessageBox.information(self, "Catalog is current", f"You already have CPT-City {local}.")
+            else:
+                self.update_label.setText(f"Update available: {local} → {self.remote_version}")
+                self.update_button.setText("Download catalog update")
+                try:
+                    self.update_button.clicked.disconnect()
+                except TypeError:
+                    pass
+                self.update_button.clicked.connect(self._download_update)
+        except Exception as error:
+            if not silent:
+                QMessageBox.warning(self, "Update check failed", str(error))
+        reply.deleteLater()
+
+    def _download_update(self):
+        if not self.remote_url:
+            return
+        self.update_button.setEnabled(False)
+        self.update_button.setText("Downloading…")
+        reply = self.network.get(QNetworkRequest(QUrl(self.remote_url)))
+        reply.downloadProgress.connect(lambda received, total: self.update_label.setText(f"Downloading update: {received // 1048576} / {max(total, 0) // 1048576} MB"))
+        reply.finished.connect(lambda: self._update_downloaded(reply))
+
+    def _update_downloaded(self, reply):
+        self.update_button.setEnabled(True)
+        self.update_button.setText("Check for catalog updates")
+        if reply.error():
+            QMessageBox.warning(self, "Update failed", reply.errorString())
+            reply.deleteLater()
+            return
+        try:
+            count = install_zip(bytes(reply.readAll()), self.plugin_dir, self.remote_version)
+            self.paths = load_index(self.plugin_dir)
+            self.tree.clear()
+            self._build_tree()
+            self._show_paths(self.paths[:250], limited=len(self.paths) > 250)
+            self.update_label.setText(f"Catalog updated: CPT-City {self.remote_version} ({count} ramps)")
+            try:
+                self.update_button.clicked.disconnect()
+            except TypeError:
+                pass
+            self.update_button.clicked.connect(lambda: self._check_updates(silent=False))
+            QMessageBox.information(self, "Catalog updated", f"CPT-City {self.remote_version} is ready with {count} ramps.")
+        except Exception as error:
+            QMessageBox.critical(self, "Update failed", f"The existing catalog was kept unchanged.\n\n{error}")
+        reply.deleteLater()
