@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from qgis.PyQt.QtCore import Qt, QSettings, QSize
+from qgis.PyQt.QtCore import Qt, QSettings
 from qgis.PyQt.QtGui import QAction, QColor, QIcon, QLinearGradient, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (QAbstractItemView, QCheckBox, QDialog, QHBoxLayout,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QProgressBar,
@@ -52,8 +52,14 @@ class PaletteDialog(QDialog):
         layout.addLayout(row)
         self.list = QListWidget()
         self.list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.list.setIconSize(QSize(260, 28))
         layout.addWidget(self.list, 1)
+        preview_row = QHBoxLayout()
+        preview_row.addWidget(QLabel("Selected palette:"))
+        self.preview = QLabel("Select a palette to preview it")
+        self.preview.setMinimumHeight(32)
+        self.preview.setAlignment(Qt.AlignCenter)
+        preview_row.addWidget(self.preview, 1)
+        layout.addLayout(preview_row)
         self.status, self.progress = QLabel(), QProgressBar()
         self.progress.setRange(0, 0); self.progress.hide()
         layout.addWidget(self.status); layout.addWidget(self.progress)
@@ -62,6 +68,7 @@ class PaletteDialog(QDialog):
         buttons.addWidget(select_visible); buttons.addStretch(1); buttons.addWidget(install); buttons.addWidget(close)
         layout.addLayout(buttons)
         self.search.textChanged.connect(self.populate)
+        self.list.currentItemChanged.connect(self.show_preview)
         self.sync_button.clicked.connect(self.sync)
         select_visible.clicked.connect(self.list.selectAll)
         install.clicked.connect(self.install_selected)
@@ -71,12 +78,24 @@ class PaletteDialog(QDialog):
     def populate(self):
         query = self.search.text().strip().lower()
         self.list.clear()
-        for palette in self.palettes:
-            if query and query not in palette.search_text: continue
-            item = QListWidgetItem(preview_icon(palette), f"{palette.name}   —   {palette.collection}")
+        matches = [p for p in self.palettes if not query or query in p.search_text]
+        # Creating thousands of Qt items and ramp icons blocks the QGIS UI.
+        # Keep broad views bounded; a specific search instantly narrows the set.
+        visible = matches[:500]
+        for palette in visible:
+            item = QListWidgetItem(f"{palette.name}   —   {palette.collection}")
             item.setToolTip(palette.relative_path); item.setData(Qt.UserRole, palette)
             self.list.addItem(item)
-        self.status.setText(f"Showing {self.list.count():,} of {len(self.palettes):,} palettes")
+        suffix = " — refine the search to see more" if len(matches) > len(visible) else ""
+        self.status.setText(f"Showing {len(visible):,} of {len(matches):,} matching palettes; {len(self.palettes):,} indexed{suffix}")
+
+    def show_preview(self, current, previous=None):
+        if not current:
+            self.preview.setText("Select a palette to preview it")
+            self.preview.setPixmap(QPixmap())
+            return
+        icon = preview_icon(current.data(Qt.UserRole), 520, 28)
+        self.preview.setPixmap(icon.pixmap(520, 28))
 
     def sync(self):
         self.progress.show(); self.sync_button.setEnabled(False)
