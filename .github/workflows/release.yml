@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build plugin ZIP
-        run: zip -r CPT-City-Live-${GITHUB_REF_NAME#v}.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
+        run: zip -r CPT-City-Live-1.0.0.zip cpt_city_live -x "*/__pycache__/*" "*.pyc"
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0
