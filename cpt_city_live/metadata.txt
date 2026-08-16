@@ -1,11 +1,11 @@
 [general]
 name=CPT-City New Catalog
 description=Adds a separate bundled archive named cpt-city-new and can restore QGIS's original CPT-City catalog.
-version=2.2.1
+version=2.2.2
 qgisMinimumVersion=3.22
 qgisMaximumVersion=3.99
 author=Hemed Lungo
-about=Registers a bundled native SVG archive as cpt-city-new. It only writes settings and requires a safe QGIS restart; it never clears live archive objects or bulk-imports palettes.
+about=Registers a bundled native SVG archive as cpt-city-new. If no archive exists it initializes safely; it never clears or replaces a live archive object and never bulk-imports palettes.
 homepage=https://phillips.shef.ac.uk/pub/cpt-city/
 repository=https://github.com/Heed725/QGIS-CPT-City-Live
 tracker=https://github.com/Heed725/QGIS-CPT-City-Live/issues
